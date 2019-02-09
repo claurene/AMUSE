@@ -23,6 +23,7 @@
  */
 package amuse.scheduler.gui.training;
 
+import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -91,6 +92,15 @@ public class CategorySelectionPanel extends JPanel {
 
 	public void setCategory(int id) {
 		setSelectedCategory(id);
+	}
+
+	// For unsupervised classification
+	public void setDisabled(boolean b) {
+		Component[] com = this.getComponents();
+		for (int a = 0; a < com.length; a++) {
+			com[a].setEnabled(!b);
+		}
+		this.setEnabled(!b);
 	}
 
 	private class CategoryComboBoxModel extends DefaultComboBoxModel {

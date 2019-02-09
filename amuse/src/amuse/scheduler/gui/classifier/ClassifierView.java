@@ -81,6 +81,8 @@ public class ClassifierView extends JPanel implements HasCaption, NextButtonUsab
         selectAverageCalculation.setToolTipText(toolTipCheckboxAverage);
         selectAverageCalculation.setSelected(true);
         trainingView.addLineInView(targetPathSelectionPanel);
+        // Disable model choosing for unsupervised classification
+        trainingView.disableTrainingAlgorithmFacade(true);
         this.add(trainingView.getView(), BorderLayout.CENTER);
     }
 
@@ -169,7 +171,7 @@ public class ClassifierView extends JPanel implements HasCaption, NextButtonUsab
         }
     }
 
-        public void setSelectedTrainingAlgorithm(String value) {
+    public void setSelectedTrainingAlgorithm(String value) {
         trainingView.setSelectedTrainingAlgorithm(value);
     }
 

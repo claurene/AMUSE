@@ -1,6 +1,6 @@
 package amuse.scheduler.gui.training;
 
-import java.awt.CardLayout;
+import java.awt.*;
 import java.io.File;
 
 import javax.swing.JButton;
@@ -48,6 +48,16 @@ public class GroundTruthSelectionPanel extends JPanel {
 		this.add(new JLabel("Ground Truth Source Type:"), "split 2");
 		this.add(groundTruthSourceTypeComboBox, "pushx, growx");
 		this.add(cardLayoutPanel, "pushx, growx");
+	}
+
+	// For unsupervised classification
+	public void setDisabled(Boolean b) {
+		Component[] com = this.getComponents();
+		for (int a = 0; a < com.length; a++) {
+			com[a].setEnabled(!b);
+		}
+		categorySelectionPanel.setDisabled(b);
+		this.setEnabled(!b);
 	}
 	
 	class PathSelectionPanel extends JPanel{

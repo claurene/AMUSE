@@ -29,8 +29,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.util.ArrayList;
-import java.util.Properties;
+import java.util.*;
 
 import org.apache.log4j.Level;
 
@@ -48,6 +47,7 @@ import amuse.interfaces.nodes.NodeException;
 import amuse.interfaces.nodes.NodeScheduler;
 import amuse.interfaces.nodes.TaskConfiguration;
 import amuse.interfaces.nodes.methods.AmuseTask;
+import amuse.nodes.classifier.methods.unsupervised.RapidMinerUnsupervisedModelLoader;
 import amuse.nodes.classifier.interfaces.BinaryClassifiedSongPartitions;
 import amuse.nodes.classifier.interfaces.ClassifiedSongPartitions;
 import amuse.nodes.classifier.interfaces.ClassifierInterface;
@@ -77,7 +77,12 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 	
 	/** Here the description of data instances (from what music files and intervals) is saved */
 	private ArrayList<SongPartitionsDescription> descriptionOfClassifierInput = null;
-	
+
+	/**
+	 * Flag for unsupervised classification
+	 */
+	private Boolean isUnsupervised = false;
+
 	/**
 	 * Constructor
 	 */
@@ -537,12 +542,65 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 	    	throw new NodeException(e.getMessage());
 	    }
 	}
-	
+
 	/**
-	 * Starts the classification method
+	 * Starts the generic classification method
 	 * @throws NodeException
 	 */
 	private void classify() throws NodeException {
+		// TODO: if there are more unsupervised classification classes, put them here
+		if (this.cad instanceof RapidMinerUnsupervisedModelLoader) {
+			// Get algorithm name and set it as pathInputModel
+			Integer requiredAlgorithm;
+			boolean algorithmFound = false;
+			try {
+				//TODO: catch integer conversion fail ??
+				requiredAlgorithm = Integer.valueOf(((AmuseTask)this.cad).getProperties().getProperty("id"));
+
+				ArffLoader classificationTrainerTableLoader = new ArffLoader();
+				if(this.directStart) {
+					classificationTrainerTableLoader.setFile(new File(AmusePreferences.getClassifierAlgorithmTablePath()));
+				} else {
+					classificationTrainerTableLoader.setFile(new File(this.nodeHome + File.separator + "input" + File.separator + "task_" + this.jobId + File.separator + "classifierAlgorithmTable.arff"));
+				}
+				Instance currentInstance = classificationTrainerTableLoader.getNextInstance(classificationTrainerTableLoader.getStructure());
+				Attribute idAttribute = classificationTrainerTableLoader.getStructure().attribute("Id");
+				Attribute algorithmName = classificationTrainerTableLoader.getStructure().attribute("TrainerAdapterClass");
+				while(currentInstance != null) {
+					Integer idOfCurrentAlgorithm = new Double(currentInstance.value(idAttribute)).intValue();
+					if(idOfCurrentAlgorithm.equals(requiredAlgorithm)) {
+						System.out.println(currentInstance.stringValue(algorithmName));
+						((ClassificationConfiguration)this.taskConfiguration).setPathToInputModel(currentInstance.stringValue(algorithmName));
+						algorithmFound = true;
+						break;
+					}
+					currentInstance = classificationTrainerTableLoader.getNextInstance(classificationTrainerTableLoader.getStructure());
+				}
+
+				if(!algorithmFound) {
+					AmuseLogger.write(this.getClass().getName(), Level.ERROR,
+							"Algorithm with id " + ((ClassificationConfiguration)this.taskConfiguration).getAlgorithmDescription() +
+									" was not found, task aborted");
+					System.exit(1);
+				}
+
+				// Unsupervised classification
+				this.classifyUnsupervised(); //TODO: better in if algorithmFound statement ?
+			} catch (IOException e) {
+				throw new NodeException(e.getMessage());
+			}
+		} else {
+			// Supervised classification
+			this.classifySupervised();
+		}
+	}
+
+
+	/**
+	 * Starts the supervised classification method
+	 * @throws NodeException
+	 */
+	private void classifySupervised() throws NodeException {
 		try {
 	    	// Check the folder for model file if it exists
 			if(this.requiredParameters != null) {
@@ -583,6 +641,24 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 			throw new NodeException("Problem during classification: " + e.getMessage());
 	    }
 	}
+
+	/**
+	 * Starts the classification method for unsupervised classification
+	 * @throws NodeException
+	 */
+	private void classifyUnsupervised() throws NodeException {
+		try {
+			// Get algorithmName
+			String algorithmName = ((ClassificationConfiguration)this.taskConfiguration).getPathToInputModel();
+			// Classify
+			AmuseLogger.write(this.getClass().getName(), Level.INFO, "Starting the classification with " +
+					((AmuseTask)this.cad).getProperties().getProperty("name") + "...");
+			this.cad.classify(algorithmName);
+			AmuseLogger.write(this.getClass().getName(), Level.INFO, "..classification finished!");
+		} catch(NodeException e) {
+			throw new NodeException("Problem during classification: " + e.getMessage());
+		}
+	}
 	
 	private ArrayList<ClassifiedSongPartitions> createClassifiedSongPartitionDescriptions() {
 		ArrayList<ClassifiedSongPartitions> classificationResults = new ArrayList<ClassifiedSongPartitions>();
@@ -591,9 +667,13 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 		
 		// Is the current classification result binary or multiclass?
 		boolean isMulticlass = false;
+		//TODO: switch on name for supervised / unsupervised ?
 		String predictedLabel = d.getAttribute("PredictedCategory").getValueAt(0).toString();
 		if(predictedLabel.startsWith("NOT")) {
 			predictedLabel = predictedLabel.substring(4,predictedLabel.length());
+		} //TODO: enough ?
+		else if (predictedLabel.startsWith("cluster")) {
+			this.isUnsupervised = true;
 		}
 		for(int i=1;i<d.getAttribute("PredictedCategory").getValueCount();i++) {
 			String currentPredictedLabel = d.getAttribute("PredictedCategory").getValueAt(i).toString();
@@ -622,6 +702,17 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 							0.0 : 1.0;
 					currentPartition++;
 				}
+			} // TODO: unsupervised classification
+			else if (this.isUnsupervised) {
+				categories = new String[numberOfCorrespondingPartitions];
+				relationships = new Double[numberOfCorrespondingPartitions]; // can only be double
+				for(int j=0;j<numberOfCorrespondingPartitions;j++) {
+					categories[j] = d.getAttribute("PredictedCategory").getValueAt(currentPartition).toString();
+					relationships[j] = Double.parseDouble(d.getAttribute("PredictedCategory").getValueAt(currentPartition).toString().split("cluster")[1]);
+					//System.out.println(categories[j]);
+					// looks like it's working correctly (cluster1 and cluster0 on debugger mode)
+					currentPartition++;
+				}
 			} else {
 				categories = new String[numberOfCorrespondingPartitions];
 				relationships = new Double[numberOfCorrespondingPartitions];
@@ -633,6 +724,7 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 			}
 			
 			// Save the partition data for this song
+			//TODO: implement unsupervised classification partition ??
 			if(!isMulticlass) {
 				classificationResults.add(new BinaryClassifiedSongPartitions(descriptionOfClassifierInput.get(i).getPathToMusicSong(), 
 					descriptionOfClassifierInput.get(i).getSongId(),
@@ -691,22 +783,50 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 	        
 			// If the partition classifications should be combined
 			if(((ClassificationConfiguration)taskConfiguration).getMergeSongResults().equals(new Integer("1"))) {
-				
-				// Go through all songs
-				for(int i=0;i<classifierResult.size();i++) {
-					double meanRelationship = 0d;
-					String currentSongName = classifierResult.get(i).getPathToMusicSong();
-					
-					// Go through all partitions of the current song
-					for(int j=0;j<classifierResult.get(i).getRelationships().length;j++) {
-						meanRelationship += classifierResult.get(i).getRelationships()[j];
+
+				if (this.isUnsupervised) {
+					// Go through all songs
+					for(int i=0;i<classifierResult.size();i++) {
+						// Find cluster with the highest number of occurences
+						HashMap<Double,Integer> hm = new HashMap();
+						String currentSongName = classifierResult.get(i).getPathToMusicSong();
+
+						// Go through all partitions of the current song
+						for(int j=0;j<classifierResult.get(i).getRelationships().length;j++) {
+							Double key = new Double(classifierResult.get(i).getRelationships()[j]);
+							if ( hm.containsKey(key) ) {
+								//TODO: check this
+								int val = hm.get(key);
+								hm.put(key, val + 1);
+							} else {
+								hm.put(key, 1);
+							}
+						}
+
+						Double maxCluster = Collections.max(hm.entrySet(), Comparator.comparingInt(Map.Entry::getValue)).getKey();
+
+						// Save the results
+						values_writer.writeBytes(descriptionOfClassifierInput.get(i).getSongId() + ",'" + currentSongName + "',-1,-1," +
+								categoryNameString + "," + maxCluster);
+						values_writer.writeBytes(sep);
 					}
-					meanRelationship /= classifierResult.get(i).getRelationships().length;
-					
-					// Save the results
-					values_writer.writeBytes(descriptionOfClassifierInput.get(i).getSongId() + ",'" + currentSongName + "',-1,-1," +
-							categoryNameString + "," + meanRelationship);
-					values_writer.writeBytes(sep);
+				} else {
+					// Go through all songs
+					for (int i = 0; i < classifierResult.size(); i++) {
+						double meanRelationship = 0d;
+						String currentSongName = classifierResult.get(i).getPathToMusicSong();
+
+						// Go through all partitions of the current song
+						for (int j = 0; j < classifierResult.get(i).getRelationships().length; j++) {
+							meanRelationship += classifierResult.get(i).getRelationships()[j];
+						}
+						meanRelationship /= classifierResult.get(i).getRelationships().length;
+
+						// Save the results
+						values_writer.writeBytes(descriptionOfClassifierInput.get(i).getSongId() + ",'" + currentSongName + "',-1,-1," +
+								categoryNameString + "," + meanRelationship);
+						values_writer.writeBytes(sep);
+					}
 				}
 			}
 			// If the classification results for each partition should be saved

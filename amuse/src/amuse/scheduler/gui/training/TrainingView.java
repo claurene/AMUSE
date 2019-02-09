@@ -34,6 +34,8 @@ import net.miginfocom.swing.MigLayout;
 import amuse.scheduler.gui.algorithm.AlgorithmConfigurationFacade;
 import java.io.File;
 import javax.swing.JScrollPane;
+import javax.swing.event.ListDataEvent;
+import javax.swing.event.ListDataListener;
 
 /**
  * @author Clemens Waeltken
@@ -76,6 +78,24 @@ public class TrainingView {
 		viewLeft.add(processingHistoryPanel, "growx, span, wrap");
 		addRightSide(trainingAlgorithmFacade.getPrameterPanel());
 		splitPane.setDividerLocation(0.5);
+	}
+
+	// Add event listener in order to disable model choosing for unsupervised classification
+	public void disableTrainingAlgorithmFacade(Boolean b) {
+		trainingAlgorithmFacade.addListenerToComboBox(new ListDataListener() {
+			@Override
+			public void intervalAdded(ListDataEvent listDataEvent) {}
+			@Override
+			public void intervalRemoved(ListDataEvent listDataEvent) {}
+			@Override
+			public void contentsChanged(ListDataEvent listDataEvent) {
+				if (trainingAlgorithmFacade.getSelectedAlgorithm().getCategory().equals("Unsupervised")) {
+					groundTruthSelectionPanel.setDisabled(true);
+				} else {
+					groundTruthSelectionPanel.setDisabled(false);
+				}
+			}
+		});
 	}
 
 	public JComponent getView() {

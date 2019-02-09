@@ -59,7 +59,8 @@ public class ClassifiedSongPartitions extends SongPartitionsDescription {
 	public Double[] getRelationships() {
 		return relationships;
 	}
-	
+
+	//TODO: implement unsupervised classification for validation
 	public double getMeanRelationship() {
 		double sum = 0d;
 		for(Double d : relationships) {

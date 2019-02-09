@@ -158,6 +158,11 @@ public class AlgorithmConfigurationFacade {
 		});
 	}
 
+	// For unsupervised classification
+	public void addListenerToComboBox(ListDataListener listDataListener) {
+		comboBox.getModel().addListDataListener(listDataListener);
+	}
+
 	private void setFile(File file) {
 		loadTable(file);
 		createViews();
