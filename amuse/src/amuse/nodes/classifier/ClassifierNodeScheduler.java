@@ -548,49 +548,10 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 	 * @throws NodeException
 	 */
 	private void classify() throws NodeException {
-		// TODO: if there are more unsupervised classification classes, put them here
+		// Unsupervised and supervised classification works differently
 		if (this.cad instanceof RapidMinerUnsupervisedModelLoader) {
-			// Get algorithm name and set it as pathInputModel
-			Integer requiredAlgorithm;
-			boolean algorithmFound = false;
-			try {
-				//TODO: catch integer conversion fail ??
-				requiredAlgorithm = Integer.valueOf(((AmuseTask)this.cad).getProperties().getProperty("id"));
-
-				ArffLoader classificationTrainerTableLoader = new ArffLoader();
-				if(this.directStart) {
-					classificationTrainerTableLoader.setFile(new File(AmusePreferences.getClassifierAlgorithmTablePath()));
-				} else {
-					classificationTrainerTableLoader.setFile(new File(this.nodeHome + File.separator + "input" + File.separator + "task_" + this.jobId + File.separator + "classifierAlgorithmTable.arff"));
-				}
-				Instance currentInstance = classificationTrainerTableLoader.getNextInstance(classificationTrainerTableLoader.getStructure());
-				Attribute idAttribute = classificationTrainerTableLoader.getStructure().attribute("Id");
-				Attribute algorithmName = classificationTrainerTableLoader.getStructure().attribute("TrainerAdapterClass");
-				while(currentInstance != null) {
-					Integer idOfCurrentAlgorithm = new Double(currentInstance.value(idAttribute)).intValue();
-					if(idOfCurrentAlgorithm.equals(requiredAlgorithm)) {
-						System.out.println(currentInstance.stringValue(algorithmName));
-						((ClassificationConfiguration)this.taskConfiguration).setPathToInputModel(currentInstance.stringValue(algorithmName));
-						algorithmFound = true;
-						break;
-					}
-					currentInstance = classificationTrainerTableLoader.getNextInstance(classificationTrainerTableLoader.getStructure());
-				}
-
-				if(!algorithmFound) {
-					AmuseLogger.write(this.getClass().getName(), Level.ERROR,
-							"Algorithm with id " + ((ClassificationConfiguration)this.taskConfiguration).getAlgorithmDescription() +
-									" was not found, task aborted");
-					System.exit(1);
-				}
-
-				// Unsupervised classification
-				this.classifyUnsupervised(); //TODO: better in if algorithmFound statement ?
-			} catch (IOException e) {
-				throw new NodeException(e.getMessage());
-			}
+			this.classifyUnsupervised();
 		} else {
-			// Supervised classification
 			this.classifySupervised();
 		}
 	}
@@ -780,6 +741,10 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 			values_writer.writeBytes("@DATA");
 			values_writer.writeBytes(sep);
 			String categoryNameString = categoryDescription.substring(categoryDescription.indexOf("-") + 1);
+
+			if (this.isUnsupervised) {
+				categoryNameString = "Cluster"; // category is not pertinent for clustering results
+			}
 	        
 			// If the partition classifications should be combined
 			if(((ClassificationConfiguration)taskConfiguration).getMergeSongResults().equals(new Integer("1"))) {
@@ -795,7 +760,6 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 						for(int j=0;j<classifierResult.get(i).getRelationships().length;j++) {
 							Double key = new Double(classifierResult.get(i).getRelationships()[j]);
 							if ( hm.containsKey(key) ) {
-								//TODO: check this
 								int val = hm.get(key);
 								hm.put(key, val + 1);
 							} else {

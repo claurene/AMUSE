@@ -53,4 +53,4 @@
 6, "Perceptron", "Supervised", amuse.nodes.trainer.methods.supervised.PerceptronAdapter, amuse.nodes.classifier.methods.supervised.RapidMinerModelLoader, "RapidMiner5", -1, -1, -1, -1, -1, "Perceptron learner", "Learning rate:", "[%d]", "[0.3]", "Learning rate for the backpropagation algorithm"
 
 % Unsupervised methods
-7, "SimpleKMeans", "Unsupervised", "weka:W-SimpleKMeans", amuse.nodes.classifier.methods.unsupervised.RapidMinerUnsupervisedModelLoader, "RapidMiner5", -1, -1, -1, -1, -1, "SimpleKMeans classifier", "", "", "", ""
+7, "SimpleKMeans", "Unsupervised", "amuse.nodes.trainer.methods.unsupervised.SimpleKMeansAdapter", amuse.nodes.classifier.methods.unsupervised.SimpleKMeansAdapter, "RapidMiner5", -1, -1, -1, -1, -1, "SimpleKMeans classifier", "Number of clusters", "[%i]", "[2]", "Number of clusters"

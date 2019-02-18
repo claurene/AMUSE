@@ -25,7 +25,6 @@ public class RapidMinerUnsupervisedModelLoader extends AmuseTask implements Clas
      * (non-Javadoc)
      * @see amuse.interfaces.AmuseTaskInterface#setParameters(java.lang.String)
      */
-    //TODO
     public void setParameters(String parameterString) {
         // Does nothing
     }
@@ -46,7 +45,12 @@ public class RapidMinerUnsupervisedModelLoader extends AmuseTask implements Clas
      * (non-Javadoc)
      * @see amuse.nodes.classifier.interfaces.ClassifierInterface#classify(java.lang.String, java.util.ArrayList, java.lang.String)
      */
-    public void classify(String algorithmName) throws NodeException {
+    public void classify(String pathToModelFile) throws NodeException {
+        // Does nothing
+    }
+
+    // Triggered by extended class (cf. example SimpleKMeansAdapter)
+    public void classify(Operator modelLoader) throws NodeException {
         DataSet dataSetToClassify = ((DataSetInput)((ClassificationConfiguration)this.correspondingScheduler.
                 getConfiguration()).getInputToClassify()).getDataSet();
 
@@ -66,7 +70,8 @@ public class RapidMinerUnsupervisedModelLoader extends AmuseTask implements Clas
             }
 
             // (2) Load the model
-            Operator modelLoader = OperatorService.createOperator(algorithmName); //weka:W-SimpleKMeans W-FarthestFirst
+            //Operator modelLoader = OperatorService.createOperator(algorithmName); //weka:W-SimpleKMeans W-FarthestFirst
+
             process.getRootOperator().getSubprocess(0).addOperator(modelLoader);
 
             // (3) Apply the model
@@ -84,7 +89,6 @@ public class RapidMinerUnsupervisedModelLoader extends AmuseTask implements Clas
             process.run(new IOContainer(exampleSet));
 
             // (6) Convert the results to AMUSE EditableDataSet
-            //TODO: name cluster instead of predicted category (requires changing ClassifierNodeScheduler) ??
             exampleSet.getAttributes().getCluster().setName("PredictedCategory");
             ((ClassificationConfiguration)(this.correspondingScheduler.getConfiguration())).setInputToClassify(new DataSetInput(
                     new DataSet(exampleSet)));
