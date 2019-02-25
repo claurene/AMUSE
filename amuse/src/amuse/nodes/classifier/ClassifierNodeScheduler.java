@@ -669,7 +669,7 @@ public class ClassifierNodeScheduler extends NodeScheduler {
 				relationships = new Double[numberOfCorrespondingPartitions]; // can only be double
 				for(int j=0;j<numberOfCorrespondingPartitions;j++) {
 					categories[j] = d.getAttribute("PredictedCategory").getValueAt(currentPartition).toString();
-					relationships[j] = Double.parseDouble(d.getAttribute("PredictedCategory").getValueAt(currentPartition).toString().split("cluster")[1]);
+					relationships[j] = Double.parseDouble(d.getAttribute("PredictedCategory").getValueAt(currentPartition).toString().split("cluster_")[1]); //TODO: cluster without '_' for weka kmeans
 					//System.out.println(categories[j]);
 					// looks like it's working correctly (cluster1 and cluster0 on debugger mode)
 					currentPartition++;
