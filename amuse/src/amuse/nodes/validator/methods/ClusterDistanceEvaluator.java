@@ -6,10 +6,7 @@ import amuse.data.io.DataSetInput;
 import amuse.interfaces.nodes.NodeException;
 import amuse.interfaces.nodes.methods.AmuseTask;
 import amuse.nodes.validator.ValidationConfiguration;
-import amuse.nodes.validator.interfaces.ClassificationQualityMeasureCalculatorInterface;
-import amuse.nodes.validator.interfaces.MeasureCalculatorInterface;
-import amuse.nodes.validator.interfaces.ValidationMeasure;
-import amuse.nodes.validator.interfaces.ValidatorInterface;
+import amuse.nodes.validator.interfaces.*;
 import amuse.util.AmuseLogger;
 import amuse.util.LibraryInitializer;
 import com.rapidminer.Process;
@@ -216,7 +213,7 @@ public class ClusterDistanceEvaluator extends AmuseTask implements ValidatorInte
 
                 // Run the process
                 // result container contains centroids and cluster assigments
-                IOContainer result = process.run(new IOContainer(exampleSet));//new IOContainer(exampleSet));
+                IOContainer result = process.run(new IOContainer(exampleSet));
 
                 // For each data, calculate the distance between it's features and the cluster's centroid
                 //TODO
@@ -246,8 +243,17 @@ public class ClusterDistanceEvaluator extends AmuseTask implements ValidatorInte
                     distances.add(euclidianDistance(centroidFeatures, dataFeatures));
                 }
 
-                System.out.println(distances);
+                //TODO: should be in own measure class
+                Double meanDistances = distances.stream().mapToDouble(d -> d).average().orElse(0.0);
+                //ValidationMeasureDouble[] meanClusterDistances = new ValidationMeasureDouble[1];
+                ValidationMeasureDouble meanClusterDistances = new ValidationMeasureDouble();
+                meanClusterDistances.setId(400);
+                meanClusterDistances.setName("Mean cluster distance (Euclidian)");
+                meanClusterDistances.setValue(meanDistances);
 
+                ArrayList<ValidationMeasure> measureList = new ArrayList<>();
+                measureList.add(meanClusterDistances);
+                ((ValidationConfiguration)this.getCorrespondingScheduler().getConfiguration()).setCalculatedMeasures(measureList);
 
             } catch(Exception e) {
                 throw new NodeException("Error classifying data: " + e.getMessage());
